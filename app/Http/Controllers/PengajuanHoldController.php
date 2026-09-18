@@ -475,7 +475,10 @@ class PengajuanHoldController extends Controller
     public function getKavling($id)
     {
         $kavling = KavlingPeta::where('id_lokasi', $id)
-            ->where('status', 0)
+            ->where(function ($query) {
+                $query->where('status', 0)
+                      ->orWhereNull('status');
+            })
             ->get(['id', 'kode_kavling']);
 
         return response()->json($kavling);
