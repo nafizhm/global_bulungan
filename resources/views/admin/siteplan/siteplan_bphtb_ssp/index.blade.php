@@ -545,7 +545,14 @@
 @push('scripts')
     <script>
         $('#modalDetail').on('show.bs.modal', function() {
-            $(this).find('.nav-tabs [data-toggle="pill"], .nav-tabs [data-toggle="tab"]').first().tab('show');
+            const modal = $(this);
+            const tabs = modal.find('.nav-tabs [data-toggle="pill"], .nav-tabs [data-toggle="tab"]');
+            const firstTab = tabs.first();
+
+            tabs.removeClass('active').attr('aria-selected', 'false');
+            modal.find('.tab-content > .tab-pane').removeClass('show active');
+            firstTab.addClass('active').attr('aria-selected', 'true');
+            modal.find(firstTab.attr('href')).addClass('show active');
         });
 
         function toggleLegend() {
