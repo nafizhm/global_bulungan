@@ -3,7 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>@yield('title', 'Booking')</title>
+    @php
+        $konfigurasi = $konfigurasi ?? \App\Models\PengaturanProfil::first();
+    @endphp
+    <title>{{ $konfigurasi->nama_perusahaan ?? 'Template Aplikasi' }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     @php
         $favicon = \App\Models\PengaturanMedia::where('jenis_data', 'fav icon')->where('stt_aktif', 1)->first();

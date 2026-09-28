@@ -556,6 +556,10 @@
 
 @push('scripts')
     <script>
+        $('#modalDetail').on('show.bs.modal', function() {
+            $(this).find('.nav-tabs [data-toggle="pill"], .nav-tabs [data-toggle="tab"]').first().tab('show');
+        });
+
       $(document).on('click', '#btn-cetak', function () {
             const data = {
                 _token: $('meta[name="csrf-token"]').attr('content'),

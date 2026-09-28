@@ -508,6 +508,10 @@
 
 @push('scripts')
     <script>
+        $('#modalDetail').on('show.bs.modal', function() {
+            $(this).find('.nav-tabs [data-toggle="pill"], .nav-tabs [data-toggle="tab"]').first().tab('show');
+        });
+
         function toggleLegend() {
             var legend = document.getElementById('legend');
             var showBtn = document.getElementById('show-btn');

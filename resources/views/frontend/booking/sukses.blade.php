@@ -3,7 +3,6 @@
 @php
     $konfigurasi = \App\Models\PengaturanProfil::first();
 @endphp
-<title>{{ $konfigurasi->nama_perusahaan ?? 'Template Aplikasi' }}</title>
 <style>
      body {
             font-family: 'Inter', sans-serif !important;
@@ -41,7 +40,11 @@
 
         <div class="container py-5">
             @php
-                $logo = \App\Models\PengaturanMedia::where('jenis_data', 'logo website')->first();
+                $logos = \App\Models\PengaturanMedia::where('stt_aktif', 1)
+                    ->whereIn('jenis_data', ['Logo Login', 'Logo Aplikasi'])
+                    ->get();
+                $logo = $logos->sortBy(fn ($media) => $media->jenis_data === 'Logo Login' ? 0 : 1)
+                    ->first(fn ($media) => $media->nama_file && is_file(public_path('config_media/' . $media->nama_file)));
             @endphp
 
             <div class="row justify-content-center align-items-center min-vh-100">
@@ -50,9 +53,13 @@
 
                 <div class="col-md-8 col-lg-6">
                     <div class="text-center mb-4 animate__animated animate__fadeInDown">
-                        <img src="{{ asset('config_media/' . ($logo->nama_file ?? 'default.png')) }}"
-                             alt="Logo"
+                        @if ($logo)
+                        <img src="{{ asset('config_media/' . $logo->nama_file) }}"
+                             alt="{{ $konfigurasi->nama_perusahaan ?? 'Logo Perusahaan' }}"
                              style="max-width: 120px; height: auto; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));">
+                        @else
+                            <h3 class="text-white font-weight-bold">{{ $konfigurasi->nama_perusahaan ?? 'Perusahaan' }}</h3>
+                        @endif
 
 
 

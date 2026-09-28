@@ -1,7 +1,5 @@
 ﻿@extends('layouts.app')
 
-@section('title', 'Booking Dealaska')
-
 @push('styles')
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -419,7 +417,7 @@
 @section('content')
     <div class="booking-container">
         @php
-            $logo = \App\Models\PengaturanMedia::where('jenis_data', 'Logo Login')->where('stt_aktif', 1)->first();
+            $logo = \App\Models\PengaturanMedia::where('jenis_data', 'Logo Login')->first();
         @endphp
 
         <section class="content">

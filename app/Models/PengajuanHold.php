@@ -55,6 +55,8 @@ class PengajuanHold extends Model
         'tgl_tempo_cicilan_1',
         'an_surat_kpr',
         'stt_reg',
+        'id_bank',
+        'id_metode_bayar',
     ];
 
     public $timestamps = false;
