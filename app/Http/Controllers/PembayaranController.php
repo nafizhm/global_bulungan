@@ -587,34 +587,16 @@ class PembayaranController extends Controller
         $pageW    = 210;
         $contentW = $pageW - $marginL - $marginR;
 
-        $kopPath  = public_path('assets/img/kop-kwitansi.jpg');
-        $logoPath = public_path('templates/logo_rhabayu.jpg');
-
-
-            $pdf->Image($kopPath, 5, 5, 200, 0, 'JPG', '', '', false, 100);
-
-            $pdf->SetFont('helvetica', 'B', 18);
-            $pdf->SetTextColor(0, 0, 0);
-            $pdf->SetXY(60, 16);
-            $pdf->Cell(140, 5, strtoupper($namaPerusahaan), 0, 1, 'C');
-
-            $pdf->SetFont('helvetica', '', 9);
-            $pdf->SetX(60);
-            $pdf->Cell(140, 4, $alamatPerusahaan, 0, 1, 'C');
-            $pdf->SetX(60);
-            $pdf->Cell(140, 4, 'Telp: ' . ($perusahaan->telp_perusahaan ?? '-'), 0, 1, 'C');
-
-            // if (file_exists($logoPath)) {
-            //     $pdf->Image($logoPath, 140, 13, 55, 0, '', '', '', false, 150);
-            // }
-
+        $kopPath = public_path('assets/img/kop-pembayaran-global.jpg');
+        $pdf->Image($kopPath, 5, 5, 200, 0, 'JPG', '', '', false, 300);
+        $pdf->SetTextColor(0, 0, 0);
 
         $lineY1 = 33.5;
         $pdf->SetLineWidth(0.3);
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->Line(9, $lineY1, 200, $lineY1);
 
-        $pdf->ln(2);
+        $pdf->SetY($lineY1 + 2);
         $pdf->SetFont('helvetica', 'BU', 14);
         $pdf->SetX(15);
         $pdf->Cell(180, 10, 'KWITANSI', 0, 0, 'C');
