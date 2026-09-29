@@ -152,7 +152,7 @@ class PembayaranController extends Controller
 
         $lokasi          = LokasiKavling::with('perusahaan')->find($customer->id_lokasi);
         $kavling         = KavlingPeta::with('perusahaan')->find($customer->id_kavling);
-        $perusahaan      = $kavling->perusahaan;
+        $perusahaan      = $kavling?->perusahaan;
         if (! $perusahaan && $lokasi) {
             $perusahaanId = $lokasi->perusahaan->first()->id_perusahaan ?? null;
             $perusahaan   = $perusahaanId ? Perusahaan::find($perusahaanId) : null;
@@ -368,15 +368,15 @@ class PembayaranController extends Controller
         $pdf->SetFont('helvetica', '', 10);
         $pdf->Cell(60, 6, 'Mengetahui,', 0, 0, 'C');
         $pdf->Cell(70, 6, '', 0, 0);
-        $pdf->Cell(60, 6, 'Jambi, ' . $tanggal, 0, 1, 'C');
-        $pdf->Cell(60, 6, 'Direktur', 0, 0, 'C');
+        $pdf->Cell(60, 6, ($perusahaan->kota_penandatangan ?? '-') . ', ' . $tanggal, 0, 1, 'C');
+        $pdf->Cell(60, 6, '', 0, 0, 'C');
         $pdf->Cell(70, 6, '', 0, 0);
-        $pdf->Cell(60, 6, 'Admin', 0, 1, 'C');
+        $pdf->Cell(60, 6, $perusahaan->jabatan_penandatangan ?? '-', 0, 1, 'C');
         $pdf->Ln(20);
         $pdf->SetFont('helvetica', '', 10);
         $pdf->Cell(60, 6, $perusahaan->nama_mengetahui ?? '....................', 'B', 0, 'C');
         $pdf->Cell(70, 6, '', 0, 0);
-        $pdf->Cell(60, 6, $perusahaan->nama_penandatangan ?? 'ADMIN', 'B', 1, 'C');
+        $pdf->Cell(60, 6, $perusahaan->nama_penandatangan ?? '....................', 'B', 1, 'C');
 
         $pdf->Output();
         exit;
@@ -549,7 +549,7 @@ class PembayaranController extends Controller
         $nasabah    = $pembayaran->customer;
         $lokasi     = LokasiKavling::with('perusahaan')->find($nasabah->id_lokasi);
         $kavling    = KavlingPeta::with('perusahaan')->find($nasabah->id_kavling);
-        $perusahaan = $kavling->perusahaan;
+        $perusahaan = $kavling?->perusahaan;
 
         if (! $perusahaan && $lokasi) {
             $perusahaanId = $lokasi->perusahaan->first()->id_perusahaan ?? null;
@@ -633,7 +633,7 @@ class PembayaranController extends Controller
 
         $pdf->SetFont('helvetica', '', 10);
         $pdf->SetX(145);
-        $pdf->Cell(40, 6, 'Jambi, '.$tanggal, 'B', 1,'C');
+        $pdf->Cell(40, 6, ($perusahaan->kota_penandatangan ?? '-') . ', ' . $tanggal, 'B', 1,'C');
 
 
         $pdf->ln(10);
@@ -653,14 +653,14 @@ class PembayaranController extends Controller
         $pdf->SetFont('helvetica', '', 10);
         $pdf->ln(7);
         $pdf->SetX(92);
-        $pdf->Cell(35, 6, $perusahaan->nama_mengetahui, 'B', 0, 'C');
+        $pdf->Cell(35, 6, $perusahaan->nama_mengetahui ?? '....................', 'B', 0, 'C');
         $pdf->Cell(20, 6, '', 0, 0, 'C');
-        $pdf->Cell(35, 6, $perusahaan->nama_penandatangan, 'B', 1, 'C');
+        $pdf->Cell(35, 6, $perusahaan->nama_penandatangan ?? '....................', 'B', 1, 'C');
 
         $pdf->SetX(92);
-        $pdf->Cell(35, 6, 'Direktur', 0, 0, 'C');
+        $pdf->Cell(35, 6, 'Mengetahui', 0, 0, 'C');
         $pdf->Cell(20, 6, '', 0, 0, 'C');
-        $pdf->Cell(35, 6, 'Admin', 0, 1, 'C');
+        $pdf->Cell(35, 6, $perusahaan->jabatan_penandatangan ?? '-', 0, 1, 'C');
 
 
         $pdf->SetFont('helvetica', '', 8);
