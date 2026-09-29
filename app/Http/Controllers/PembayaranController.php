@@ -164,7 +164,7 @@ class PembayaranController extends Controller
         $profilPerusahaan = PengaturanProfil::first();
         $namaProfil       = $profilPerusahaan->nama_perusahaan ?? 'PT. ALAM INDAH SELALU';
         $telpProfil       = $profilPerusahaan->telp ?? '0778-4173387';
-        $kopPath         = public_path('assets/img/kop-kwitansi.jpg');
+        $kopPath         = public_path('assets/img/kop-pembayaran-global.jpg');
         $pengaturanMedia = PengaturanMedia::where('jenis_data', 'Logo Rekap')->first();
         $logoPath        = null;
         if ($pengaturanMedia && $pengaturanMedia->nama_file) {
@@ -173,21 +173,12 @@ class PembayaranController extends Controller
 
         $pdf = new TCPDF('P', 'mm', 'A4');
         $pdf->SetTitle('Rekap Pembayaran' . ' - ' . $customer->nama_lengkap);
+        $pdf->setPrintHeader(false);
         $pdf->AddPage();
 
         if (file_exists($kopPath)) {
-            $pdf->Image($kopPath, 5, 5, 200, 0, 'JPG', '', '', false, 100);
-
-            $pdf->SetFont('helvetica', 'B', 18);
+            $pdf->Image($kopPath, 5, 5, 200, 0, 'JPG', '', '', false, 300);
             $pdf->SetTextColor(0, 0, 0);
-            $pdf->SetXY(60, 16);
-            $pdf->Cell(140, 5, strtoupper($namaPerusahaan), 0, 1, 'C');
-
-            $pdf->SetFont('helvetica', '', 9);
-            $pdf->SetX(60);
-            $pdf->Cell(140, 4, $alamatPerusahaan, 0, 1, 'C');
-            $pdf->SetX(60);
-            $pdf->Cell(140, 4, 'Telp: ' . $telpPerusahaan, 0, 1, 'C');
 
             $lineY1 = 33.5;
             $pdf->SetLineWidth(0.3);
