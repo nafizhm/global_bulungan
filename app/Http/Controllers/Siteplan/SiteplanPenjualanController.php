@@ -46,10 +46,11 @@ class SiteplanPenjualanController extends Controller
 
     public function show($id)
     {
-        $data = KavlingPeta::with(['lokasi', 'customer', 'listrikAir'])->findOrFail($id);
+        $data = KavlingPeta::with(['lokasi', 'customer.marketing', 'customer.progres', 'listrikAir'])->findOrFail($id);
 
-        $tagihanList   = Piutang::where('id_customer', $data->id_customer)->orderBy('id')->get();
-        $pemasukanList = Pemasukan::with('kategori')->where('id_customer', $data->id_customer)->get();
+        $customerId = $data->customer?->id;
+        $tagihanList = $customerId ? Piutang::where('id_customer', $customerId)->orderBy('id')->get() : collect();
+        $pemasukanList = $customerId ? Pemasukan::with('kategori')->where('id_customer', $customerId)->get() : collect();
 
         return response()->json([
             'success'         => true,
@@ -218,7 +219,9 @@ class SiteplanPenjualanController extends Controller
         ]);
 
         $kavling = KavlingPeta::with(['lokasi', 'listrikAir', 'customer.marketing'])
-            ->where('kode_kavling', $request->kode_kavling)
+            ->when($request->filled('id_kavling'),
+                fn ($query) => $query->whereKey($request->id_kavling),
+                fn ($query) => $query->where('kode_kavling', $request->kode_kavling))
             ->first();
 
         if (!$kavling) {

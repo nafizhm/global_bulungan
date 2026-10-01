@@ -181,17 +181,7 @@
                         </div>
 
                         <div class="form-group row">
-                            <label class="col-sm-3 col-form-label">Harga per Meter</label>
-                            <div class="col-sm-4">
-                                <div class="input-group">
-                                    <div class="input-group-prepend">
-                                        <span class="input-group-text">Rp.</span>
-                                    </div>
-                                    <input type="text" name="hrg_meter" id="hrg_meter"
-                                        class="form-control format-number">
-                                </div>
-                            </div>
-                            <label class="col-sm-2 col-form-label">Tipe Rumah</label>
+                            <label class="col-sm-3 col-form-label">Tipe Rumah</label>
                             <div class="col-sm-2">
                                 <input type="text" name="tipe_bangunan" id="tipe_bangunan"
                                     class="form-control format-number">
@@ -670,7 +660,6 @@
                     $('#lebar_belakang').val(data.lebar_belakang);
                     $('#luas_tanah').val(data.luas_tanah);
                     $('#luas_bangunan').val(data.luas_bangunan);
-                    $('#hrg_meter').val(formatNumber(data.hrg_meter));
                     $('#tipe_bangunan').val(formatNumber(data.tipe_bangunan));
                     $('#daya_listrik').val(formatNumber(data.daya_listrik));
 

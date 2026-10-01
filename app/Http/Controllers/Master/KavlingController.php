@@ -120,7 +120,6 @@ class KavlingController extends Controller
             'lebar_belakang' => 'required',
             'luas_tanah'     => 'required',
             'luas_bangunan'  => 'required',
-            'hrg_meter'      => 'required',
             'tipe_bangunan'  => 'required',
             'rincian_biaya'  => 'nullable|array',
         ];
@@ -132,7 +131,6 @@ class KavlingController extends Controller
             'lebar_belakang.required' => 'Lebar belakang wajib diisi.',
             'luas_tanah.required'     => 'Luas tanah wajib diisi.',
             'luas_bangunan.required'  => 'Luas bangunan wajib diisi.',
-            'hrg_meter.required'      => 'Harga per meter wajib diisi.',
             'tipe_bangunan.required'  => 'Tipe rumah wajib diisi.',
         ];
 
@@ -204,7 +202,6 @@ class KavlingController extends Controller
                 'lebar_belakang'    => $request->lebar_belakang,
                 'luas_tanah'        => $request->luas_tanah,
                 'luas_bangunan'     => $request->luas_bangunan,
-                'hrg_meter'         => str_replace('.', '', $request->hrg_meter ?? 0),
                 'tipe_bangunan'     => str_replace('.', '', $request->tipe_bangunan ?? 0),
                 'hrg_jual'          => $hrgJualBaru,
                 'biaya_surat'       => $biayaSuratBaru,
