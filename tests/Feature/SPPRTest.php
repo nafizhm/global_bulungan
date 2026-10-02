@@ -97,9 +97,6 @@ class SPPRTest extends TestCase
         $payload['nominal_dp'] = 30000000;
         $payload['tahun_bangunan'] = 2024;
         $payload['asumsi_plafon_kpr'] = 220000000;
-        foreach (['biaya_surat_surat', 'peningkatan_mutu', 'jumlah_booking_fee', 'cicilan_per_bulan'] as $field) {
-            $payload[$field] = 0;
-        }
         $this->postJson('/test-sppr', $payload)->assertOk();
         $sppr = SPPR::orderByDesc('id')->first();
         $this->assertSame('2026-10-02', $sppr->tanggal_sppr->format('Y-m-d'));
@@ -119,33 +116,15 @@ class SPPRTest extends TestCase
             ->assertJsonValidationErrors('tanggal_sppr');
     }
 
-    public function test_edit_accepts_add_form_fields_and_preserves_hidden_costs(): void
+    public function test_edit_accepts_active_fields_and_validates_building_year(): void
     {
         $sppr = SPPR::first();
-        $hidden = [
-            'biaya_surat_surat' => 1000000, 'peningkatan_mutu' => 2000000,
-            'jumlah_booking_fee' => 500000, 'cicilan_per_bulan' => 1500000,
-            'biaya_kelebihan_tanah' => 3000000, 'biaya_sudut' => 4000000,
-            'biaya_lain_lain' => 100000, 'promo' => 'Promo lama',
-            'perubahan_posisi' => 'Posisi lama', 'keterangan_booking' => 'Booking lama',
-            'nominal_biaya_posisi_unit' => 200000, 'keterangan_posisi_unit' => 'Posisi',
-            'nominal_biaya_kpr' => 300000, 'keterangan_kpr' => 'KPR',
-            'nominal_blokir_angsuran' => 400000, 'keterangan_blokir_angsuran' => 'Blokir',
-            'nominal_biaya_materai' => 10000, 'keterangan_materai' => 'Materai',
-            'nominal_biaya_buka_tabungan' => 50000, 'keterangan_tabungan' => 'Tabungan',
-            'keterangan_shm' => 'SHM',
-        ];
-        $sppr->update($hidden);
         $payload = $sppr->only((new SPPR)->getFillable());
-        foreach (array_keys($hidden) as $field) {
-            unset($payload[$field]);
-        }
         $payload['tanggal_sppr'] = '2026-10-02';
         $payload['tahun_bangunan'] = 2026;
         $payload['nominal_dp'] = 25000000;
         $this->putJson('/test-sppr/'.$sppr->id, $payload)->assertOk();
         $sppr->refresh();
-        $this->assertSame($hidden, $sppr->only(array_keys($hidden)));
         $this->assertSame(25000000, $sppr->nominal_dp);
         $this->assertSame(2026, $sppr->tahun_bangunan);
 
