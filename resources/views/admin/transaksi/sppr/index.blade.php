@@ -30,9 +30,11 @@
                                         <tr>
                                             <th width="50px">No</th>
                                             <th>Nama</th>
-                                            <th>Blok / No</th>
-                                            <th>Total</th>
-                                            <th>Cicilan/bln</th>
+                                            <th>Lokasi Unit</th>
+                                            <th>Alamat / No Telp</th>
+                                            <th>Luas Tanah</th>
+                                            <th>Luas Bangunan</th>
+                                            <th>Marketing</th>
                                             <th width="150px">Action</th>
                                         </tr>
                                     </thead>
@@ -76,7 +78,15 @@
                             <div class="form-group row">
                                 <label for="no_sppr" class="col-sm-3 col-form-label">No. SPPR</label>
                                 <div class="col-sm-8">
-                                    <input type="text" name="no_sppr" id="no_sppr" class="form-control" readonly>
+                                    <input type="text" name="no_sppr" id="no_sppr" class="form-control">
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="tanggal_sppr" class="col-sm-3 col-form-label">Tanggal SPPR</label>
+                                <div class="col-sm-8">
+                                    <input type="date" name="tanggal_sppr" id="tanggal_sppr" class="form-control"
+                                        value="{{ now()->toDateString() }}" required>
                                 </div>
                             </div>
 
@@ -107,17 +117,21 @@
                             </div>
 
                             <div class="form-group row">
-                                <label for="agama" class="col-sm-3 col-form-label">Agama</label>
-                                <div class="col-sm-3">
-                                    <input type="text" name="agama" id="agama" class="form-control">
-                                </div>
-                                <label for="pekerjaan" class="col-sm-2 col-form-label">Pekerjaan</label>
-                                <div class="col-sm-3">
+                                <label for="pekerjaan" class="col-sm-3 col-form-label">Pekerjaan</label>
+                                <div class="col-sm-8">
                                     <input type="text" name="pekerjaan" id="pekerjaan" class="form-control">
                                 </div>
                             </div>
 
                             <hr>
+                            <div class="form-group row">
+                                <label for="kode_kavling" class="col-sm-3 col-form-label">Kode Kavling</label>
+                                <div class="col-sm-8">
+                                    <input type="text" id="kode_kavling" class="form-control" readonly>
+                                </div>
+                            </div>
+                            <input type="hidden" name="blok" id="blok">
+                            <input type="hidden" name="no" id="no">
                             <div class="form-group row">
                                 <label for="luas_bangunan" class="col-sm-3 col-form-label">Luas Bangunan</label>
                                 <div class="col-sm-2">
@@ -140,16 +154,48 @@
                             </div>
 
                             <div class="form-group row">
-                                <label for="blok" class="col-sm-3 col-form-label">Blok</label>
-                                <div class="col-sm-2">
-                                    <input type="text" name="blok" id="blok" class="form-control" readonly>
-                                </div>
-                                <label for="no" class="col-sm-2 col-form-label">No</label>
-                                <div class="col-sm-2">
-                                    <input type="text" name="no" id="no" class="form-control" readonly>
+                                <label for="tahun_bangunan" class="col-sm-3 col-form-label">Tahun Bangunan</label>
+                                <div class="col-sm-3">
+                                    <input type="number" name="tahun_bangunan" id="tahun_bangunan" class="form-control"
+                                        min="1000" max="9999" step="1" placeholder="Contoh: 2026">
                                 </div>
                             </div>
 
+                            <div class="form-group row">
+                                <label for="harga_jual" class="col-sm-3 col-form-label">Harga Jual</label>
+                                <div class="col-sm-3">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">Rp</span>
+                                        </div>
+                                        <input type="text" name="harga_jual" id="harga_jual" class="form-control rupiah" inputmode="numeric" required>
+                                    </div>
+                                </div>
+                                <label for="asumsi_plafon_kpr" class="col-sm-3 col-form-label">Plafon KPR</label>
+                                <div class="col-sm-3">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">Rp</span>
+                                        </div>
+                                        <input type="text" name="asumsi_plafon_kpr" id="asumsi_plafon_kpr" class="form-control rupiah" inputmode="numeric" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="nominal_dp" class="col-sm-3 col-form-label">DP</label>
+                                <div class="col-sm-3">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">Rp</span></div>
+                                        <input type="text" name="nominal_dp" id="nominal_dp" class="form-control rupiah" inputmode="numeric" required>
+                                    </div>
+                                </div>
+                                <div class="col-sm-5">
+                                    <input type="text" name="keterangan_dp" id="keterangan_dp" class="form-control" placeholder="Keterangan DP">
+                                </div>
+                            </div>
+
+                            <fieldset id="rincian-biaya" disabled style="display: none;">
                             <div class="form-group row">
                                 <label for="promo" class="col-sm-3 col-form-label">Promo</label>
                                 <div class="col-sm-8">
@@ -165,26 +211,7 @@
                             </div>
 
                             <hr>
-                            <div class="form-group row">
-                                <label for="harga_jual" class="col-sm-3 col-form-label">Harga Jual</label>
-                                <div class="col-sm-3">
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text">Rp</span>
-                                        </div>
-                                        <input type="text" name="harga_jual" id="harga_jual" class="form-control rupiah">
-                                    </div>
-                                </div>
-                                <label for="asumsi_plafon_kpr" class="col-sm-3 col-form-label">Asumsi Plafon KPR</label>
-                                <div class="col-sm-3">
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text">Rp</span>
-                                        </div>
-                                        <input type="text" name="asumsi_plafon_kpr" id="asumsi_plafon_kpr" class="form-control rupiah">
-                                    </div>
-                                </div>
-                            </div>
+
 
                             <div class="form-group row">
                                 <label for="biaya_surat_surat" class="col-sm-3 col-form-label">Biaya Surat-surat</label>
@@ -260,18 +287,7 @@
                                 </div>
                             </div>
 
-                            <div class="form-group row">
-                                <label for="nominal_dp" class="col-sm-3 col-form-label">DP</label>
-                                <div class="col-sm-3">
-                                    <div class="input-group">
-                                        <div class="input-group-prepend"><span class="input-group-text">Rp</span></div>
-                                        <input type="text" name="nominal_dp" id="nominal_dp" class="form-control rupiah">
-                                    </div>
-                                </div>
-                                <div class="col-sm-5">
-                                    <input type="text" name="keterangan_dp" id="keterangan_dp" class="form-control" placeholder="Keterangan DP">
-                                </div>
-                            </div>
+
 
                             <div class="form-group row">
                                 <label for="nominal_biaya_posisi_unit" class="col-sm-3 col-form-label">Biaya Posisi Unit</label>
@@ -351,6 +367,8 @@
                                 </div>
                             </div>
 
+                            </fieldset>
+
                             <hr>
                             <div class="form-group row">
                                 <label for="id_marketing" class="col-sm-3 col-form-label">Marketing</label>
@@ -399,12 +417,21 @@
         $(document).on('click', '[data-target="#modalForm"]', function() {
             $('#modalFormLabel').text('Tambah SPPR');
             $('#id_customer').val('').trigger('change').prop('disabled', false);
-            $('#no_sppr').val(nextNoSppr);
+            $('#no_sppr').val('');
+            $('#tanggal_sppr').val(tanggalHariIni());
+            $('#rincian-biaya').prop('disabled', true).hide();
         });
+
+        function tanggalHariIni() {
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
+            }).formatToParts(new Date());
+            const part = type => parts.find(item => item.type === type).value;
+            return `${part('year')}-${part('month')}-${part('day')}`;
+        }
 
         var audio = new Audio('{{ asset('audio/notification.ogg') }}');
         var permissions = @json($permissions);
-        var nextNoSppr = '{{ $nextNoSppr }}';
         var showActionColumn = (permissions['edit'] == 1 || permissions['hapus'] == 1);
 
         $(function() {
@@ -444,15 +471,27 @@
                     orderable: false,
                     searchable: true
                 }, {
-                    data: 'total_format',
-                    name: 'total_format',
+                    data: 'kontak',
+                    name: 'kontak',
                     orderable: false,
-                    searchable: false
+                    searchable: true
                 }, {
-                    data: 'cicilan_format',
-                    name: 'cicilan_format',
+                    data: 'luas_tanah',
+                    name: 'luas_tanah',
+                    render: data => `${Number(data || 0)} m&sup2;`,
                     orderable: false,
-                    searchable: false
+                    searchable: true
+                }, {
+                    data: 'luas_bangunan',
+                    name: 'luas_bangunan',
+                    render: data => `${Number(data || 0)} m&sup2;`,
+                    orderable: false,
+                    searchable: true
+                }, {
+                    data: 'nama_marketing',
+                    name: 'nama_marketing',
+                    orderable: false,
+                    searchable: true
                 }, {
                     data: 'action',
                     name: 'action',
@@ -473,9 +512,9 @@
         $(document).on('change', '#id_customer', function() {
             let id = $(this).val();
             if (!id) {
-                $('#nama, #alamat, #nik, #no_telp, #luas_bangunan, #luas_tanah, #blok, #no, #harga_jual, #biaya_surat_surat, #peningkatan_mutu').val('');
-                $('#total_yang_harus_dibayar, #cicilan_per_bulan, #asumsi_plafon_kpr, #biaya_kelebihan_tanah, #biaya_sudut, #biaya_lain_lain').val('');
-                $('#agama, #pekerjaan').val('');
+                $('#nama, #alamat, #nik, #no_telp, #luas_bangunan, #luas_tanah, #blok, #no, #kode_kavling, #harga_jual, #biaya_surat_surat, #peningkatan_mutu').val('');
+                $('#nominal_dp, #total_yang_harus_dibayar, #cicilan_per_bulan, #asumsi_plafon_kpr, #biaya_kelebihan_tanah, #biaya_sudut, #biaya_lain_lain').val('');
+                $('#pekerjaan').val('');
                 $('#id_marketing').val('').trigger('change');
                 return;
             }
@@ -492,12 +531,14 @@
                     $('#luas_tanah').val(d.luas_tanah || 0);
                     $('#blok').val(d.blok || '');
                     $('#no').val(d.no || '');
-                    $('#harga_jual').val(formatNumber(d.harga_jual) || '');
+                    $('#harga_jual').val(formatNumber(d.harga_jual) || '0');
+                    $('#asumsi_plafon_kpr').val(formatNumber(d.asumsi_plafon_kpr) || '0');
+                    $('#nominal_dp').val('0');
                     $('#biaya_surat_surat').val(formatNumber(d.biaya_surat_surat) || '');
                     $('#peningkatan_mutu').val(formatNumber(d.peningkatan_mutu) || '');
                     $('#jumlah_booking_fee').val(formatNumber(d.jumlah_booking_fee) || '');
                     $('#pekerjaan').val(d.pekerjaan || '');
-                    $('#agama').val(d.agama || '');
+                    $('#kode_kavling').val(d.kode_kavling || '');
                     if (!$('#primary_id').val()) {
                         if (d.id_marketing) {
                             $('#id_marketing').val(d.id_marketing).trigger('change');
@@ -553,15 +594,18 @@
             $.get(url, function(response) {
                 if (response.status === 'success') {
                     $('#modalFormLabel').text('Edit SPPR');
+                    $('#rincian-biaya').prop('disabled', true).hide();
                     let d = response.data;
                     $('#primary_id').val(d.id);
-                    $('#id_customer').val(d.id_customer).prop('disabled', true);
+                    $('#id_customer').val(d.id_customer).prop('disabled', false).trigger('change.select2');
                     $('#no_sppr').val(d.no_sppr || '');
+                    $('#tanggal_sppr').val(d.tanggal_sppr || tanggalHariIni());
                     $('#nama').val(d.nama);
                     $('#alamat').val(d.alamat);
                     $('#nik').val(d.nik);
                     $('#no_telp').val(d.no_telp);
                     $('#luas_bangunan').val(d.luas_bangunan);
+                    $('#tahun_bangunan').val(d.tahun_bangunan ?? '');
                     $('#luas_tanah').val(d.luas_tanah);
                     $('#blok').val(d.blok);
                     $('#no').val(d.no);
@@ -575,12 +619,12 @@
                     $('#total_yang_harus_dibayar').val(formatNumber(d.total_yang_harus_dibayar));
                     $('#jumlah_booking_fee').val(formatNumber(d.jumlah_booking_fee));
                     $('#cicilan_per_bulan').val(formatNumber(d.cicilan_per_bulan));
-                    $('#agama').val(d.agama || '');
+                    $('#kode_kavling').val(d.kode_kavling || '');
                     $('#pekerjaan').val(d.pekerjaan || '');
                     $('#promo').val(d.promo || '');
                     $('#perubahan_posisi').val(d.perubahan_posisi || '');
                     $('#keterangan_booking').val(d.keterangan_booking || '');
-                    if (d.nominal_dp) $('#nominal_dp').val(formatNumber(d.nominal_dp));
+                    $('#nominal_dp').val(formatNumber(d.nominal_dp || 0));
                     $('#keterangan_dp').val(d.keterangan_dp || '');
                     if (d.nominal_biaya_posisi_unit) $('#nominal_biaya_posisi_unit').val(formatNumber(d.nominal_biaya_posisi_unit));
                     $('#keterangan_posisi_unit').val(d.keterangan_posisi_unit || '');
@@ -612,10 +656,11 @@
             $('#primary_id').val('');
             $('#id_customer').val('').trigger('change').prop('disabled', false);
             $('#no_sppr').val('');
+            $('#tanggal_sppr').val(tanggalHariIni());
             $('#id_marketing').val('').trigger('change');
             $('#penandatangan').val('');
             $('#keterangan').val('');
-            $('#agama, #pekerjaan, #promo').val('');
+            $('#pekerjaan, #promo').val('');
             $('#perubahan_posisi, #keterangan_booking').val('');
             $('#nominal_dp, #keterangan_dp').val('');
             $('#nominal_biaya_posisi_unit, #keterangan_posisi_unit').val('');
@@ -665,7 +710,9 @@
                 'nominal_biaya_kpr', 'nominal_blokir_angsuran', 'nominal_biaya_materai', 'nominal_biaya_buka_tabungan'
             ];
             rupiahFields.forEach(function(field) {
-                let val = $('#' + field).val();
+                let input = $('#' + field);
+                if (!input.length || input.is(':disabled')) return;
+                let val = input.val();
                 formData.set(field, unformatNumber(val));
             });
 

@@ -556,124 +556,90 @@ class PembayaranController extends Controller
             $perusahaan   = $perusahaanId ? Perusahaan::find($perusahaanId) : null;
         }
 
-        $blokNomor = $lokasi && $lokasi->is_cluster
-            ? (($kavling->cluster ?? '-') . '.' . ($kavling->no ?? '-'))
-            : str_replace('-', '.', $kavling->kode_kavling ?? '-');
-
-        $namaPerusahaan   = $lokasi->nama_kavling ?? 'Nama Perusahaan Belum diisi';
-        $alamatPerusahaan = $perusahaan->alamat_perusahaan ?? 'Alamat Belum diisi';
-
-        $pageFormat = [140, 210];
-        $pdf = new TCPDF('L', 'mm', $pageFormat, true, 'UTF-8', false);
+        // Layout FORMAT KWITANSI.docx, disesuaikan ke kertas A5 landscape.
+        $pdf = new TCPDF('L', 'mm', 'A5', true, 'UTF-8', false);
         $pdf->SetTitle('Kwitansi - ' . ($pembayaran->no_kwitansi ?? '-'));
-        $pdf->SetAuthor('Dealaska');
-        $pdf->SetMargins(0, 0, 0);
+        $pdf->SetAuthor('PT. Global Konstruksi Abadi');
+        $pdf->SetMargins(10, 10, 10);
         $pdf->SetAutoPageBreak(false, 0);
         $pdf->setPrintHeader(false);
         $pdf->setPrintFooter(false);
-        $pdf->AddPage('L', $pageFormat);
+        $pdf->AddPage();
 
-        $marginL  = 15;
-        $marginR  = 15;
-        $pageW    = 210;
-        $contentW = $pageW - $marginL - $marginR;
-
-        $kopPath = public_path('assets/img/kop-pembayaran-global.jpg');
-        $pdf->Image($kopPath, 5, 5, 200, 0, 'JPG', '', '', false, 300);
+        // Logo asli dari dokumen, dibuat samar sebagai watermark.
+        $pdf->SetAlpha(0.12);
+        $pdf->Image(public_path('assets/img/watermark-kwitansi-global.jpg'), 20, 32, 170, 0, 'JPG');
+        $pdf->SetAlpha(1);
         $pdf->SetTextColor(0, 0, 0);
-
-        $lineY1 = 33.5;
-        $pdf->SetLineWidth(0.3);
         $pdf->SetDrawColor(0, 0, 0);
-        $pdf->Line(9, $lineY1, 200, $lineY1);
 
-        $pdf->SetY($lineY1 + 2);
-        $pdf->SetFont('helvetica', 'BU', 14);
-        $pdf->SetX(15);
-        $pdf->Cell(180, 10, 'KWITANSI', 0, 0, 'C');
+        $pdf->SetFont('times', 'B', 13);
+        $pdf->SetXY(10, 10);
+        $pdf->Cell(120, 7, 'PT. GLOBAL KONSTRUKSI ABADI');
+        $pdf->SetFont('times', 'B', 11);
+        $pdf->SetXY(10, 17);
+        $pdf->Cell(120, 5, 'Kantor Pemasaran Tanjung Selor');
+        $pdf->SetFont('times', 'B', 10);
+        $pdf->SetXY(10, 22);
+        $pdf->Cell(120, 5, 'Telp. 0812 1143 5527 / 0812 1143 5528');
 
-        $pdf->ln(3);
-        $pdf->SetFont('helvetica', '', 10);
-        $pdf->SetX(15);
-        $pdf->Cell(30, 5, 'No. : ' . ($pembayaran->no_kwitansi ?? '-'), 'B', 1, 'L');
-        $pdf->ln(5);
+        $pdf->SetFont('times', 'BU', 20);
+        $pdf->SetXY(135, 9);
+        $pdf->Cell(65, 9, 'KWITANSI', 0, 0, 'C');
+        $pdf->SetFont('times', '', 10);
+        $pdf->MultiCell(65, 10, 'No. : ' . ($pembayaran->no_kwitansi ?? '-'), 0, 'C', false, 1, 135, 19, true, 0, false, true, 10, 'T', true);
 
-        $pdf->SetFont('helvetica', '', 11);
-        $pdf->SetX(15);
-        $pdf->Cell(48, 6, 'Telah Diterima Dari', 0, 0, 'L');
-        $pdf->Cell(5, 6, ':', 0, 0);
-        $pdf->Cell(127, 6, strtoupper($nasabah->nama_lengkap) ?? '-', 'B', 1);
+        $pdf->SetLineWidth(0.5);
+        $pdf->Rect(10, 33, 190, 64);
+        $pdf->SetLineWidth(0.2);
+        $pdf->Line(10, 50, 200, 50);
+        $pdf->Line(10, 70, 200, 70);
 
-        $pdf->ln(3);
-        $pdf->SetX(15);
+        // Batas tinggi dan fitcell menjaga teks panjang tetap di dalam kotak.
+        $pdf->SetFont('times', '', 12);
+        $pdf->SetXY(13, 38);
+        $pdf->Cell(40, 7, 'Telah Terima Dari');
+        $pdf->Cell(5, 7, ':');
+        $pdf->MultiCell(139, 13, mb_strtoupper($nasabah->nama_lengkap ?? '-'), 0, 'L', false, 1, 58, 35, true, 0, false, true, 13, 'M', true);
 
-        $pdf->Cell(48, 8, 'Uang Sejumlah', 0, 0);
-        $pdf->Cell(5, 8, ':', 0, 0);
-        $pdf->SetFillColor(219, 153, 47);
-        $pdf->Cell(127, 8, '#'.strtoupper($this->terbilang($pembayaran->nominal)) . ' RUPIAH#', 0, 1, 'L', true);
-        $pdf->SetFillColor(255, 255, 255);
+        $pdf->SetXY(13, 54);
+        $pdf->Cell(40, 6, 'Jumlah Uang');
+        $pdf->Cell(5, 6, ':');
+        $pdf->SetXY(13, 60);
+        $pdf->Cell(40, 6, '(Terbilang)');
+        $pdf->SetFont('times', 'I', 12);
+        $terbilang = trim($this->terbilang($pembayaran->nominal)) ?: 'Nol';
+        $pdf->MultiCell(139, 16, $terbilang . ' Rupiah', 0, 'L', false, 1, 58, 52, true, 0, false, true, 16, 'M', true);
 
-        $pdf->ln(3);
-        $pdf->SetX(15);
-        $pdf->Cell(48, 6, 'Untuk Pembayaran', 0, 0);
-        $pdf->Cell(5, 6, ':', 0, 0);
-        $pdf->Cell(127, 6, $pembayaran->keterangan ?? '-', 'B', 1, 'L');
+        $pdf->SetFont('times', '', 12);
+        $pdf->SetXY(13, 75);
+        $pdf->Cell(40, 7, 'Untuk Pembayaran');
+        $pdf->Cell(5, 7, ':');
+        $pdf->MultiCell(139, 20, $pembayaran->keterangan ?? '-', 0, 'L', false, 1, 58, 75, true, 0, false, true, 20, 'T', true);
 
-        $pdf->ln(2);
-        $pdf->SetX(15);
-        $pdf->Cell(180, 6, '', 'B', 1, 'L');
-        // ----------
+        $tanggal = Carbon::parse($pembayaran->tanggal)->locale('id')->isoFormat('D MMMM YYYY');
+        $pdf->SetFont('times', '', 11);
+        $pdf->SetXY(120, 101);
+        $pdf->Cell(80, 6, 'Tanjung Selor, ' . $tanggal, 0, 0, 'C');
+        $pdf->SetXY(120, 107);
+        $pdf->Cell(80, 6, 'Yang Menerima,', 0, 0, 'C');
+        $pdf->MultiCell(80, 7, ($perusahaan->nama_penandatangan ?? null) ?: '________________________', 0, 'C', false, 1, 120, 129, true, 0, false, true, 7, 'M', true);
 
-        $pdf->ln(3);
-        $pdf->SetX(15);
-        $pdf->Cell(180, 5, 'Cara Pembayaran :', 0, 0, 'L');
-        $pdf->SetX(55);
-        $pdf->Cell(50, 5, strtoupper($pembayaran->metode->jenis_bayar ?? 'CASH'), 0, 0, 'L');
-        $tanggal = \Carbon\Carbon::parse($pembayaran->tanggal)->locale('id')->isoFormat('D MMMM YYYY');
+        $pdf->SetLineWidth(0.5);
+        $pdf->Line(10, 108, 88, 108);
+        $pdf->Line(10, 121, 88, 121);
+        $pdf->SetFont('times', 'B', 17);
+        $pdf->SetXY(10, 109);
+        $pdf->Cell(78, 11, 'Rp. ' . number_format($pembayaran->nominal, 0, ',', '.') . ',-', 0, 0, 'L', false, '', 1);
+        $pdf->SetFont('times', '', 9);
+        $pdf->MultiCell(94, 4, 'Apabila pembayaran dengan Cheque/Giro maka Kwitansi ini baru sah bila jumlah tersebut telah diterima oleh Bank kami.', 0, 'L', false, 1, 10, 125);
 
-        $pdf->SetFont('helvetica', '', 10);
-        $pdf->SetX(145);
-        $pdf->Cell(40, 6, ($perusahaan->kota_penandatangan ?? '-') . ', ' . $tanggal, 'B', 1,'C');
+        $nomorFile = preg_replace('/[^A-Za-z0-9._-]/', '-', $pembayaran->no_kwitansi ?? 'draft');
 
-
-        $pdf->ln(10);
-        $pdf->SetFont('helvetica', 'B', 11);
-        $pdf->SetFillColor(255, 255, 255);
-        $pdf->SetDrawColor(0, 0, 0);
-        $pdf->SetLineWidth(0.3);
-        $pdf->SetX(15);
-        $pdf->Cell(15, 10, 'Rp.', 'TB', 0, 'C', false);
-
-        $pdf->SetFont('helvetica', 'B', 12);
-        $pdf->SetFillColor(219, 153, 47);
-        $pdf->SetX(30);
-        $pdf->Cell(35, 10, ' ' . number_format($pembayaran->nominal, 0, ',', '.') . ',-', 'LTBR', 0, 'L', true);
-        $pdf->SetFillColor(255, 255, 255);
-
-        $pdf->SetFont('helvetica', '', 10);
-        $pdf->ln(7);
-        $pdf->SetX(92);
-        $pdf->Cell(35, 6, $perusahaan->nama_mengetahui ?? '....................', 'B', 0, 'C');
-        $pdf->Cell(20, 6, '', 0, 0, 'C');
-        $pdf->Cell(35, 6, $perusahaan->nama_penandatangan ?? '....................', 'B', 1, 'C');
-
-        $pdf->SetX(92);
-        $pdf->Cell(35, 6, 'Mengetahui', 0, 0, 'C');
-        $pdf->Cell(20, 6, '', 0, 0, 'C');
-        $pdf->Cell(35, 6, $perusahaan->jabatan_penandatangan ?? '-', 0, 1, 'C');
-
-
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->SetX(15);
-        $pdf->Cell(45, 4, 'Catatan : ', 0, 1, 'l');
-        $pdf->SetX(15);
-        $pdf->Cell(45, 4, '1. Setelah melakukan pembayaran, segera konfirmasi ke WA 082173603773 : ', 0, 1, 'l');
-        $pdf->SetX(15);
-        $pdf->Cell(45, 4, '2. Butuh informasi bubungi 082173603773 : ', 0, 1, 'l');
-
-        $filename = 'Kwitansi-' . ($pembayaran->no_kwitansi ?? 'draft') . '.pdf';
-        $pdf->Output($filename, 'I');
-        exit;
+        return response($pdf->Output('', 'S'), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="Kwitansi-' . $nomorFile . '.pdf"',
+        ]);
     }
 
     private function terbilang($angka)

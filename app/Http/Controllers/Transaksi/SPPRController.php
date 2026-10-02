@@ -24,21 +24,23 @@ class SPPRController extends Controller
         $permissions = HakAksesController::getUserPermissions();
 
         if ($request->ajax()) {
-            $data = SPPR::with('customer')->orderBy('id', 'desc');
+            $data = SPPR::with(['customer.kavling', 'customer.marketing', 'marketing'])->orderBy('id', 'desc');
 
             return DataTables::of($data)
                 ->addIndexColumn()
+                ->editColumn('luas_tanah', fn ($row) => $row->luasUnit()['luas_tanah'])
+                ->editColumn('luas_bangunan', fn ($row) => $row->luasUnit()['luas_bangunan'])
                 ->addColumn('customer_nama', function ($row) {
                     return $row->nama;
                 })
                 ->addColumn('customer_lokasi', function ($row) {
-                    return $row->blok . ' - ' . $row->no;
+                    return $row->customer?->kavling?->kode_kavling ?? '-';
                 })
-                ->addColumn('total_format', function ($row) {
-                    return 'Rp ' . number_format($row->total_yang_harus_dibayar, 0, ',', '.');
+                ->addColumn('kontak', function ($row) {
+                    return e($row->alamat ?? '-') . '<br><span class="text-muted">Telp: ' . e($row->no_telp ?? '-') . '</span>';
                 })
-                ->addColumn('cicilan_format', function ($row) {
-                    return 'Rp ' . number_format($row->cicilan_per_bulan, 0, ',', '.');
+                ->addColumn('nama_marketing', function ($row) {
+                    return $row->marketing?->nama_marketing ?? $row->customer?->marketing?->nama_marketing ?? '-';
                 })
                 ->addColumn('action', function ($row) use ($permissions) {
                     $cetakUrl = route('sppr.cetak', $row->id);
@@ -61,17 +63,14 @@ class SPPRController extends Controller
                     $btn .= '</div>';
                     return $btn;
                 })
-                ->rawColumns(['action'])
+                ->rawColumns(['action', 'kontak'])
                 ->make(true);
         }
 
         $customerList = Customer::orderBy('nama_lengkap')->get();
         $marketingList = MarketingOffline::orderBy('nama_marketing')->get();
 
-        $lastId = SPPR::max('id') ?? 0;
-        $nextNoSppr = str_pad($lastId + 1, 3, '0', STR_PAD_LEFT);
-
-        return view('admin.transaksi.sppr.index', compact('permissions', 'customerList', 'marketingList', 'nextNoSppr'));
+        return view('admin.transaksi.sppr.index', compact('permissions', 'customerList', 'marketingList'));
     }
 
     public function getCustomerDetail($id)
@@ -95,6 +94,8 @@ class SPPRController extends Controller
                     $blok = $parts[0] ?? $kode;
                     $no = $parts[1] ?? '';
                 }
+                $blok = filled($customer->kavling->blok) ? $customer->kavling->blok : $blok;
+                $no = filled($customer->kavling->no) ? $customer->kavling->no : $no;
             }
 
             return response()->json([
@@ -108,9 +109,11 @@ class SPPRController extends Controller
                     'nama_marketing' => $customer->marketing->nama_marketing ?? '',
                     'luas_bangunan' => $customer->kavling->luas_bangunan ?? 0,
                     'luas_tanah' => $customer->kavling->luas_tanah ?? 0,
+                    'kode_kavling' => $customer->kavling->kode_kavling ?? '',
                     'blok' => $blok,
                     'no' => $no,
                     'harga_jual' => $customer->hrg_jual ?? 0,
+                    'asumsi_plafon_kpr' => $customer->estimasi_plafon ?? 0,
                     'biaya_surat_surat' => $customer->biaya_surat ?? 0,
                     'peningkatan_mutu' => $customer->peningkatan_mutu ?? 0,
                     'jumlah_booking_fee' => $bookingFee,
@@ -125,17 +128,34 @@ class SPPRController extends Controller
 
     public function store(Request $request)
     {
+        $request->validate(['id_customer' => 'required|integer|exists:customer,id']);
+        $customer = Customer::findOrFail($request->id_customer);
+
+        // Lengkapi rincian biaya yang tidak ditampilkan pada form tambah.
+        $request->mergeIfMissing([
+            'tanggal_sppr' => now()->toDateString(),
+            'harga_jual' => $customer->hrg_jual ?? 0,
+            'asumsi_plafon_kpr' => $customer->estimasi_plafon ?? 0,
+            'biaya_surat_surat' => $customer->biaya_surat ?? 0,
+            'peningkatan_mutu' => $customer->peningkatan_mutu ?? 0,
+            'jumlah_booking_fee' => (int) $customer->pemasukans()
+                ->where('id_kategori_transaksi', 1)->sum('nominal'),
+            'cicilan_per_bulan' => 0,
+        ]);
+
         $request->validate([
             'id_customer' => 'required|integer|exists:customer,id',
             'no_sppr' => 'nullable',
+            'tanggal_sppr' => 'required|date_format:Y-m-d',
             'nama' => 'required',
             'alamat' => 'required',
             'nik' => 'required',
             'no_telp' => 'required',
             'luas_bangunan' => 'required|numeric',
+            'tahun_bangunan' => 'nullable|integer|digits:4|min:1000|max:9999',
             'luas_tanah' => 'required|numeric',
-            'blok' => 'required',
-            'no' => 'required',
+            'blok' => 'nullable|string|max:50',
+            'no' => 'nullable|string|max:50',
             'harga_jual' => 'required|numeric',
             'asumsi_plafon_kpr' => 'required|numeric',
             'biaya_surat_surat' => 'required|numeric',
@@ -189,14 +209,16 @@ class SPPRController extends Controller
         $sppr = SPPR::create([
             'id_customer' => $request->id_customer,
             'no_sppr' => $request->no_sppr,
+            'tanggal_sppr' => $request->tanggal_sppr,
             'nama' => $request->nama,
             'alamat' => $request->alamat,
             'nik' => $request->nik,
             'no_telp' => $request->no_telp,
             'luas_bangunan' => $request->luas_bangunan,
+            'tahun_bangunan' => $request->tahun_bangunan,
             'luas_tanah' => $request->luas_tanah,
-            'blok' => $request->blok,
-            'no' => $request->no,
+            'blok' => $request->blok ?? '',
+            'no' => $request->no ?? '',
             'harga_jual' => $request->harga_jual,
             'asumsi_plafon_kpr' => $request->asumsi_plafon_kpr,
             'biaya_surat_surat' => $request->biaya_surat_surat,
@@ -237,11 +259,13 @@ class SPPRController extends Controller
 
     public function edit($id)
     {
-        $sppr = SPPR::with('customer')->findOrFail($id);
+        $sppr = SPPR::with('customer.kavling')->findOrFail($id);
+        $sppr->setAttribute('tanggal_sppr', ($sppr->tanggal_sppr ?? $sppr->created_at ?? now())->format('Y-m-d'));
+        $sppr->setAttribute('kode_kavling', $sppr->customer?->kavling?->kode_kavling ?? '');
 
         return response()->json([
             'status' => 'success',
-            'data' => $sppr,
+            'data' => array_merge($sppr->toArray(), $sppr->luasUnit()),
         ]);
     }
 
@@ -249,17 +273,36 @@ class SPPRController extends Controller
     {
         $sppr = SPPR::findOrFail($id);
 
+        // Pertahankan rincian biaya yang tidak ditampilkan pada form tambah/edit.
+        $request->mergeIfMissing($sppr->only([
+            'biaya_kelebihan_tanah', 'biaya_sudut', 'biaya_lain_lain',
+            'promo', 'perubahan_posisi', 'keterangan_booking',
+            'nominal_biaya_posisi_unit', 'keterangan_posisi_unit',
+            'nominal_biaya_kpr', 'keterangan_kpr',
+            'nominal_blokir_angsuran', 'keterangan_blokir_angsuran',
+            'nominal_biaya_materai', 'keterangan_materai',
+            'nominal_biaya_buka_tabungan', 'keterangan_tabungan', 'keterangan_shm',
+        ]));
+        $request->mergeIfMissing([
+            'biaya_surat_surat' => $sppr->biaya_surat_surat ?? 0,
+            'peningkatan_mutu' => $sppr->peningkatan_mutu ?? 0,
+            'jumlah_booking_fee' => $sppr->jumlah_booking_fee ?? 0,
+            'cicilan_per_bulan' => $sppr->cicilan_per_bulan ?? 0,
+        ]);
+
         $request->validate([
             'id_customer' => 'required|integer|exists:customer,id',
             'no_sppr' => 'nullable',
+            'tanggal_sppr' => 'required|date_format:Y-m-d',
             'nama' => 'required',
             'alamat' => 'required',
             'nik' => 'required',
             'no_telp' => 'required',
             'luas_bangunan' => 'required|numeric',
             'luas_tanah' => 'required|numeric',
-            'blok' => 'required',
-            'no' => 'required',
+            'tahun_bangunan' => 'nullable|integer|digits:4|min:1000|max:9999',
+            'blok' => 'nullable|string|max:50',
+            'no' => 'nullable|string|max:50',
             'harga_jual' => 'required|numeric',
             'asumsi_plafon_kpr' => 'required|numeric',
             'biaya_surat_surat' => 'required|numeric',
@@ -297,14 +340,16 @@ class SPPRController extends Controller
         $sppr->update([
             'id_customer' => $request->id_customer,
             'no_sppr' => $request->no_sppr,
+            'tanggal_sppr' => $request->tanggal_sppr,
             'nama' => $request->nama,
             'alamat' => $request->alamat,
             'nik' => $request->nik,
             'no_telp' => $request->no_telp,
             'luas_bangunan' => $request->luas_bangunan,
             'luas_tanah' => $request->luas_tanah,
-            'blok' => $request->blok,
-            'no' => $request->no,
+            'tahun_bangunan' => $request->tahun_bangunan,
+            'blok' => $request->blok ?? '',
+            'no' => $request->no ?? '',
             'harga_jual' => $request->harga_jual,
             'asumsi_plafon_kpr' => $request->asumsi_plafon_kpr,
             'biaya_surat_surat' => $request->biaya_surat_surat,
@@ -318,7 +363,7 @@ class SPPRController extends Controller
             'id_marketing' => $request->id_marketing,
             'penandatangan' => $request->penandatangan,
             'keterangan' => $request->keterangan,
-            'agama' => $request->agama,
+            'agama' => $request->input('agama', $sppr->agama),
             'pekerjaan' => $request->pekerjaan,
             'promo' => $request->promo,
             'perubahan_posisi' => $request->perubahan_posisi,
@@ -356,71 +401,40 @@ class SPPRController extends Controller
 
     public function cetak($id)
     {
-        $sppr = SPPR::with('customer.lokasi', 'customer.kavling', 'customer.pemasukans', 'customer.marketing', 'marketing')->findOrFail($id);
+        $sppr = SPPR::with(['customer.lokasi', 'customer.kavling'])->findOrFail($id);
         $customer = $sppr->customer;
-        $namaPerum = $customer->lokasi->nama_kavling ?? '-';
-        $lokasiPerum = $customer->lokasi->alamat ?? '-';
-
-        $templatePath = public_path('templates/template_sppr/template_sppr.docx');
+        $luas = $sppr->luasUnit();
+        $templatePath = public_path('templates/template_sppr/spr_wijaya_grande.docx');
 
         if (!file_exists($templatePath)) {
-            abort(404, 'Template SPPR tidak ditemukan.');
+            abort(404, 'Template SPR Wijaya Grande tidak ditemukan.');
         }
 
         $templateProcessor = new TemplateProcessor($templatePath);
+        $tanggalDoc = $sppr->tanggal_sppr ?? $sppr->created_at ?? Carbon::now();
+        $rupiah = fn ($value) => 'Rp ' . number_format((int) ($value ?? 0), 0, ',', '.');
 
-        $tanggalDoc = $sppr->created_at ? Carbon::parse($sppr->created_at) : Carbon::now();
+        $values = [
+            'tanggal_surat' => $tanggalDoc->locale('id')->isoFormat('D MMMM YYYY'),
+            'no_sppr' => filled($sppr->no_sppr) ? $sppr->no_sppr : '-',
+            'nama_lengkap' => $sppr->nama,
+            'nik' => $sppr->nik,
+            'tipe_bangunan' => (string) $luas['luas_bangunan'],
+            'luas_bangunan' => (string) $luas['luas_bangunan'],
+            'luas_tanah' => (string) $luas['luas_tanah'],
+            'tahun_bangunan' => $sppr->tahun_bangunan ?? '-',
+            'nama_perumahan' => $customer?->lokasi?->nama_kavling ?? '-',
+            'kode_kavling' => $customer?->kavling?->kode_kavling ?? '-',
+            'harga_jual' => $rupiah($sppr->harga_jual),
+            'nominal_dp' => $rupiah($sppr->nominal_dp),
+            'plafon_kpr' => $rupiah($sppr->asumsi_plafon_kpr),
+        ];
 
-        $fmt = function ($val) {
-            return number_format((int) ($val ?? 0), 0, ',', '.');
-        };
-
-        $templateProcessor->setValues([
-            'tanggal'                    => $tanggalDoc->format('d'),
-            'bulan'                      => $tanggalDoc->locale('id')->isoFormat('MMMM'),
-            'tahun'                      => $tanggalDoc->format('Y'),
-            'hari'                       => $tanggalDoc->locale('id')->isoFormat('dddd'),
-            'nama_lengkap'               => $sppr->nama,
-            'nik'                        => $sppr->nik,
-            'alamat'                     => $sppr->alamat,
-            'agama'                      => $sppr->agama ?? '-',
-            'pekerjaan'                  => $sppr->pekerjaan ?? $customer->pekerjaan ?? '-',
-            'no_telp'                    => $sppr->no_telp,
-            'blok'                       => $sppr->blok,
-            'no_unit'                    => $sppr->no,
-            'luas_tanah'                 => (string) ($sppr->luas_tanah ?? 0),
-            'biaya_kelebihan_tanah'      => $fmt($sppr->biaya_kelebihan_tanah),
-            'promo'                      => $sppr->promo ?? '-',
-            'perubahan_posisi'           => $sppr->perubahan_posisi ?? '-',
-            'lokasi_perumahan'           => $namaPerum,
-            'nominal_booking'            => $fmt($sppr->jumlah_booking_fee),
-            'keterangan_booking'         => $sppr->keterangan_booking ?? '-',
-            'nominal_dp'                 => $fmt($sppr->nominal_dp),
-            'keterangan_dp'              => $sppr->keterangan_dp ?? '-',
-            'nominal_biaya_posisi_unit'  => $fmt($sppr->nominal_biaya_posisi_unit),
-            'keterangan_posisi_unit'     => $sppr->keterangan_posisi_unit ?? '-',
-            'nominal_biaya_kpr'          => $fmt($sppr->nominal_biaya_kpr),
-            'keterangan_kpr'             => $sppr->keterangan_kpr ?? '-',
-            'nominal_blokir_angsuran'    => $fmt($sppr->nominal_blokir_angsuran),
-            'keterangan_blokir_angsuran' => $sppr->keterangan_blokir_angsuran ?? '-',
-            'nominal_biaya_materai'      => $fmt($sppr->nominal_biaya_materai),
-            'keterangan_materai'         => $sppr->keterangan_materai ?? '-',
-            'nominal_biaya_buka_tabungan'=> $fmt($sppr->nominal_biaya_buka_tabungan),
-            'keterangan_tabungan'        => $sppr->keterangan_tabungan ?? '-',
-            'biaya_peningkatan_shm'      => $fmt($sppr->peningkatan_mutu),
-            'keterangan_shm'             => $sppr->keterangan_shm ?? '-',
-            'total_biaya'                => $fmt(
-                (int) $sppr->jumlah_booking_fee
-                + (int) $sppr->nominal_dp
-                + (int) $sppr->nominal_biaya_posisi_unit
-                + (int) $sppr->nominal_biaya_kpr
-                + (int) $sppr->nominal_blokir_angsuran
-                + (int) $sppr->nominal_biaya_materai
-                + (int) $sppr->nominal_biaya_buka_tabungan
-                + (int) $sppr->peningkatan_mutu
-                + 4000000
-            ),
-        ]);
+        // Escape data customer agar karakter seperti & dan < tetap valid di XML Word.
+        $templateProcessor->setValues(array_map(
+            fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES | ENT_XML1, 'UTF-8'),
+            $values
+        ));
 
         $filename = 'SPPR_' . str_replace(' ', '_', $sppr->nama) . '.docx';
         $tempFile = tempnam(sys_get_temp_dir(), 'sppr_');
