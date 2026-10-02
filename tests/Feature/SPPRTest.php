@@ -48,6 +48,21 @@ class SPPRTest extends TestCase
         Route::get('/test-sppr', [SPPRController::class, 'index'])->name('test.sppr');
     }
 
+    public function test_save_database_errors_explain_cause_without_exposing_sql(): void
+    {
+        Route::post('/test-sppr-database-error', function () {
+            $previous = new \PDOException('Unknown column sptb_data; sensitive SQL details');
+            $previous->errorInfo = ['42S22', 1054, $previous->getMessage()];
+            throw new \Illuminate\Database\QueryException('mysql', 'insert into sppr (nik) values (?)', ['sensitive-nik'], $previous);
+        })->name('sppr.store');
+
+        $response = $this->postJson('/test-sppr-database-error')->assertStatus(500)
+            ->assertJsonPath('save_error', true)
+            ->assertJsonPath('message', 'Struktur database SPPR belum lengkap. Minta admin menjalankan migration terbaru, termasuk kolom sptb_data.');
+        $this->assertStringNotContainsString('sensitive-nik', $response->getContent());
+        $this->assertStringNotContainsString('insert into', $response->getContent());
+    }
+
     public function test_land_dimensions_follow_kavling_on_customer_selection_save_and_edit(): void
     {
         Route::get('/test-sppr-customer/{id}', [SPPRController::class, 'getCustomerDetail']);

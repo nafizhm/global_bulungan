@@ -61,6 +61,7 @@
                         @csrf
                         <input type="hidden" id="primary_id" name="primary_id">
                         <div class="modal-body">
+                            <div id="sppr-save-error" class="alert alert-danger d-none" role="alert"></div>
                             <div class="form-group row">
                                 <label for="id_customer" class="col-sm-3 col-form-label">Customer</label>
                                 <div class="col-sm-8">
@@ -479,6 +480,7 @@
 
         $('#modalForm').on('hidden.bs.modal', function() {
             $('#formData')[0].reset();
+            $('#sppr-save-error').empty().addClass('d-none');
             $('.is-invalid').removeClass('is-invalid');
             $('.invalid-feedback').remove();
             $('#primary_id').val('');
@@ -520,6 +522,7 @@
             $('.invalid-feedback').remove();
 
             let formData = new FormData(this);
+            $('#sppr-save-error').empty().addClass('d-none');
 
             if (id) {
                 formData.set('id_customer', $('#id_customer').val());
@@ -544,6 +547,7 @@
                 data: formData,
                 contentType: false,
                 processData: false,
+                headers: { Accept: 'application/json' },
                 success: function(response) {
                     $('#modalForm').modal('hide');
                     audio.play();
@@ -556,29 +560,50 @@
                     $('.data-table').DataTable().ajax.reload();
                 },
                 error: function(xhr) {
+                    const messages = [];
                     if (xhr.status === 422) {
-                        audio.play();
-                        toastr.error("Ada inputan yang salah!", "GAGAL!", {
-                            progressBar: true,
-                            timeOut: 3500,
-                            positionClass: "toast-bottom-right",
-                        });
-
-                        let errors = xhr.responseJSON.errors;
+                        let errors = xhr.responseJSON?.errors || {};
                         $.each(errors, function(key, val) {
-                            let input = $('#' + (key.startsWith('sptb_data.') ? 'sptb_' + key.substring(10) : key));
+                            const fieldId = key.startsWith('sptb_data.') ? 'sptb_' + key.substring(10) : key;
+                            let input = $(document.getElementById(fieldId));
+                            const label = $('label').filter(function() { return this.htmlFor === fieldId; }).first().text().trim();
+                            const details = Array.isArray(val) ? val : [val];
+                            messages.push(...details.map(message => (label ? label + ': ' : '') + message));
                             input.addClass('is-invalid');
                             input.parent().find('.invalid-feedback').remove();
-                            input.parent().append(
-                                '<span class="invalid-feedback" role="alert"><strong>' +
-                                val[0] + '</strong></span>'
-                            );
+                            $('<span>', { class: 'invalid-feedback d-block', role: 'alert' })
+                                .text(details.join(' ')).appendTo(input.parent());
                         });
-
-                        spinner.addClass('d-none');
-                        btnText.text('Simpan');
-                        submitBtn.prop('disabled', false);
+                        if (!messages.length) messages.push('Data SPPR tidak valid. Periksa kembali isian form.');
+                    } else {
+                        const statusMessages = {
+                            0: 'Koneksi ke server terputus. Periksa koneksi dan daftar SPPR sebelum mencoba kembali.',
+                            401: 'Sesi login telah berakhir. Silakan login kembali.',
+                            403: 'Anda tidak memiliki izin untuk menyimpan SPPR.',
+                            404: 'Data SPPR atau customer tidak ditemukan. Muat ulang daftar dan pilih data kembali.',
+                            419: 'Sesi form telah kedaluwarsa. Muat ulang halaman lalu coba kembali.',
+                            413: 'Data yang dikirim terlalu besar. Kurangi panjang isian lalu coba kembali.',
+                            429: 'Terlalu banyak permintaan. Tunggu sebentar lalu coba kembali.',
+                            503: 'Server sedang tidak tersedia. Coba kembali beberapa saat lagi.'
+                        };
+                        messages.push(xhr.responseJSON?.save_error
+                            ? xhr.responseJSON.message
+                            : statusMessages[xhr.status] || `Server gagal memproses penyimpanan SPPR (HTTP ${xhr.status}). Hubungi admin untuk memeriksa log aplikasi.`);
                     }
+                    const alert = $('#sppr-save-error').empty().removeClass('d-none');
+                    $('<strong>').text('SPPR gagal disimpan:').appendTo(alert);
+                    const list = $('<ul>', { class: 'mb-0 mt-2' }).appendTo(alert);
+                    messages.forEach(message => $('<li>').text(message).appendTo(list));
+                    alert[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    toastr.error(messages.join(' '), 'GAGAL SIMPAN', {
+                        escapeHtml: true, timeOut: 8000, closeButton: true,
+                        positionClass: 'toast-bottom-right'
+                    });
+                },
+                complete: function() {
+                    spinner.addClass('d-none');
+                    btnText.text('Simpan');
+                    submitBtn.prop('disabled', false);
                 }
             });
         });
