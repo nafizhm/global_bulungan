@@ -53,6 +53,25 @@ class KavlingPeta extends Model
 
     protected $appends = ['total_harga'];
 
+    public function ukuranTanahSppr(): array
+    {
+        $number = function (...$values) {
+            foreach ($values as $value) {
+                $value = str_replace(',', '.', trim((string) $value));
+                if (is_numeric($value) && (float) $value >= 0) {
+                    return $value + 0;
+                }
+            }
+
+            return null;
+        };
+
+        return [
+            'panjang_tanah' => $number($this->panjang_kanan, $this->panjang_kiri),
+            'lebar_tanah' => $number($this->lebar_depan, $this->lebar_belakang),
+        ];
+    }
+
     public function lokasi()
     {
         return $this->belongsTo(LokasiKavling::class, 'id_lokasi', 'id');

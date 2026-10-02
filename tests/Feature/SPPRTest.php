@@ -48,6 +48,36 @@ class SPPRTest extends TestCase
         Route::get('/test-sppr', [SPPRController::class, 'index'])->name('test.sppr');
     }
 
+    public function test_land_dimensions_follow_kavling_on_customer_selection_save_and_edit(): void
+    {
+        Route::get('/test-sppr-customer/{id}', [SPPRController::class, 'getCustomerDetail']);
+        $unit = KavlingPeta::first();
+        $unit->update(['panjang_kanan' => '12,5', 'panjang_kiri' => 13, 'lebar_depan' => 6, 'lebar_belakang' => 7]);
+        $this->getJson('/test-sppr-customer/'.Customer::first()->id)->assertOk()
+            ->assertJsonPath('data.panjang_tanah', 12.5)
+            ->assertJsonPath('data.lebar_tanah', 6);
+
+        $payload = SPPR::first()->only((new SPPR)->getFillable());
+        $payload['tanggal_sppr'] = '2026-10-02';
+        $payload['sptb_data'] = ['panjang_tanah' => 99, 'lebar_tanah' => 99, 'nomor' => 'TEST'];
+        $this->postJson('/test-sppr', $payload)->assertOk();
+        $record = SPPR::orderByDesc('id')->first();
+        $this->assertSame(['panjang_tanah' => 12.5, 'lebar_tanah' => 6, 'nomor' => 'TEST'], $record->sptb_data);
+
+        $unit->update(['panjang_kanan' => null, 'lebar_depan' => '']);
+        $this->getJson('/test-sppr/'.$record->id.'/edit')->assertOk()
+            ->assertJsonPath('data.sptb_data.panjang_tanah', 13)
+            ->assertJsonPath('data.sptb_data.lebar_tanah', 7);
+        $this->putJson('/test-sppr/'.$record->id, $payload)->assertOk();
+        $this->assertSame(13, $record->fresh()->sptb_data['panjang_tanah']);
+        $this->assertSame(7, $record->fresh()->sptb_data['lebar_tanah']);
+
+        Customer::first()->update(['id_kavling' => null]);
+        $this->getJson('/test-sppr-customer/'.Customer::first()->id)->assertOk()
+            ->assertJsonPath('data.panjang_tanah', null)
+            ->assertJsonPath('data.lebar_tanah', null);
+    }
+
     public function test_list_shows_unit_code_contacts_and_marketing_with_customer_fallback(): void
     {
         $response = $this->getJson('/test-sppr', ['X-Requested-With' => 'XMLHttpRequest']);
@@ -138,6 +168,126 @@ class SPPRTest extends TestCase
         $payload['tahun_bangunan'] = null;
         $this->putJson('/test-sppr/'.$sppr->id, $payload)->assertOk();
         $this->assertNull($sppr->fresh()->tahun_bangunan);
+    }
+
+    public function test_sptb_fields_round_trip_and_invalid_values_are_rejected(): void
+    {
+        $payload = SPPR::first()->only((new SPPR)->getFillable());
+        $payload['tanggal_sppr'] = '2026-10-02';
+        $payload['sptb_data'] = [
+            'nomor' => '001/SPTB/GKA-TJS/WIJAYA/2026', 'tanggal' => '2026-10-03',
+            'panjang_tanah' => 12.5, 'lebar_tanah' => 6,
+            'ppn' => 0, 'biaya_surat' => 4000000, 'biaya_kpr' => 4000000,
+            'booking_fee' => 2000000, 'tanggal_booking' => '2026-10-04',
+            'tanggal_dp' => '2026-10-05', 'sisa_pembayaran' => 190000000,
+            'tanggal_angsuran_1' => '2026-11-05', 'nominal_angsuran_1' => 90000000,
+            'tanggal_angsuran_2' => '2026-12-05', 'nominal_angsuran_2' => 100000000,
+        ];
+        $this->postJson('/test-sppr', $payload)->assertOk();
+        $record = SPPR::orderByDesc('id')->first();
+        $this->assertSame($payload['sptb_data'], $record->sptb_data);
+        $payload['sptb_data']['nomor'] = '002/SPTB/GKA-TJS/WIJAYA/2026';
+        $payload['sptb_data']['booking_fee'] = 0;
+        $this->putJson('/test-sppr/'.$record->id, $payload)->assertOk();
+        $this->getJson('/test-sppr/'.$record->id.'/edit')->assertOk()
+            ->assertJsonPath('data.sptb_data.nomor', $payload['sptb_data']['nomor'])
+            ->assertJsonPath('data.sptb_data.booking_fee', 0);
+
+        foreach (['tanggal' => '2026-02-30', 'ppn' => -1, 'nominal_angsuran_1' => 'abc',
+            'lebar_tanah' => -5, 'nomor' => str_repeat('x', 151), 'unknown' => 'x'] as $key => $value) {
+            $invalid = $payload;
+            $invalid['sptb_data'][$key] = $value;
+            $error = $key === 'unknown' ? 'sptb_data' : 'sptb_data.'.$key;
+            $this->postJson('/test-sppr', $invalid)->assertUnprocessable()->assertJsonValidationErrors($error);
+            $this->putJson('/test-sppr/'.$record->id, $invalid)->assertUnprocessable()->assertJsonValidationErrors($error);
+        }
+        $this->assertSame($payload['sptb_data'], $record->fresh()->sptb_data);
+    }
+
+    public function test_sptb_print_fills_values_calculates_total_and_preserves_attachments(): void
+    {
+        $record = SPPR::first();
+        $record->update(['penandatangan' => 'Manajer & Direktur', 'sptb_data' => [
+            'nomor' => '017/SPTB/GKA-TJS/WIJAYA/2026', 'tanggal' => '2026-10-03',
+            'panjang_tanah' => 12.5, 'lebar_tanah' => 6, 'ppn' => 0,
+            'biaya_surat' => 4000000, 'biaya_kpr' => 4000000, 'booking_fee' => 2000000,
+            'tanggal_booking' => '2026-10-04', 'tanggal_dp' => '2026-10-05',
+            'sisa_pembayaran' => 190000000,
+            'tanggal_angsuran_1' => '2026-11-05', 'nominal_angsuran_1' => 90000000,
+            'tanggal_angsuran_2' => '2026-12-05', 'nominal_angsuran_2' => 100000000,
+        ]]);
+        $response = app(SPPRController::class)->cetakSptb($record->id);
+        $path = $response->getFile()->getPathname();
+        try {
+            $zip = new ZipArchive;
+            $this->assertTrue($zip->open($path));
+            $xml = $zip->getFromName('word/document.xml');
+            $dom = new \DOMDocument;
+            $this->assertTrue($dom->loadXML($xml));
+            foreach (['SURAT PEMESANAN TANAH DAN/ATAU BANGUNAN', '017/SPTB/GKA-TJS/WIJAYA/2026',
+                'Budi & Siti <Uji>', 'Jl. Uji & Contoh', '3 Oktober 2026', '4 Oktober 2026',
+                '5 Oktober 2026', '5 November 2026', '5 Desember 2026', '12.5 m x 6 m',
+                '90.5 M2', '40 M²', '210.000.000', 'Dua Ratus Sepuluh Juta Rupiah',
+                '190.000.000', '90.000.000', '100.000.000', 'Manajer & Direktur', 'Marketing Customer',
+                'LAMPIRAN SURAT PEMESANAN', 'KETENTUAN PINDAH BLOK/KAVLING',
+                'KETENTUAN PEMBELIAN TIPE RUMAH SUBSIDI'] as $value) {
+                $this->assertStringContainsString($value, $dom->textContent);
+            }
+            $this->assertStringNotContainsString('${', $xml);
+            $original = new ZipArchive;
+            $this->assertTrue($original->open(storage_path('app/templates/sptb_original.docx')));
+            $originalDom = new \DOMDocument;
+            $originalDom->loadXML($original->getFromName('word/document.xml'));
+            $original->close();
+            $originalParagraphs = $originalDom->getElementsByTagName('p');
+            $generatedParagraphs = $dom->getElementsByTagName('p');
+            $this->assertSame($originalParagraphs->length, $generatedParagraphs->length);
+            foreach ($originalParagraphs as $index => $paragraph) {
+                if ($paragraph->getElementsByTagName('tab')->length === 0) {
+                    continue;
+                }
+                $expected = $paragraph->cloneNode(true);
+                $actual = $generatedParagraphs->item($index)->cloneNode(true);
+                foreach ([$expected, $actual] as $node) {
+                    foreach ($node->getElementsByTagName('t') as $textNode) {
+                        $textNode->nodeValue = '';
+                    }
+                }
+                $this->assertSame($originalDom->saveXML($expected), $dom->saveXML($actual), 'Original tab/run layout at paragraph '.$index);
+            }
+            $template = new ZipArchive;
+            $template->open(public_path('templates/template_sppr/sptb_wijaya_grande.docx'));
+            for ($i = 0; $i < $template->numFiles; $i++) {
+                $name = $template->getNameIndex($i);
+                if (str_starts_with($name, 'word/media/') || $name === 'word/numbering.xml') {
+                    $this->assertSame($template->getFromName($name), $zip->getFromName($name));
+                }
+            }
+            $template->close();
+            $zip->close();
+        } finally {
+            unlink($path);
+        }
+
+        $record->update(['sptb_data' => null]);
+        $legacy = app(SPPRController::class)->cetakSptb($record->id);
+        $zip = new ZipArchive;
+        $zip->open($legacy->getFile()->getPathname());
+        $this->assertStringNotContainsString('${', $zip->getFromName('word/document.xml'));
+        $zip->close();
+        unlink($legacy->getFile()->getPathname());
+    }
+
+    public function test_print_buttons_have_distinct_colors_and_printer_icons(): void
+    {
+        $response = $this->getJson('/test-sppr', ['X-Requested-With' => 'XMLHttpRequest'])->assertOk();
+        $action = $response->json('data.0.action');
+        $this->assertStringContainsString('btn-dark', $action);
+        $this->assertStringContainsString('btn-success', $action);
+        $this->assertStringContainsString('>SPPR</a>', $action);
+        $this->assertStringContainsString('>SPTB</a>', $action);
+        $this->assertSame(2, substr_count($action, 'fa-print'));
+        $this->assertStringContainsString(route('sppr.cetak-sptb', SPPR::first()->id), $action);
     }
 
     public function test_print_fills_the_attached_offer_template_and_preserves_letterhead(): void

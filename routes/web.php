@@ -241,6 +241,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::resource('sppr', SPPRController::class);
         Route::get('sppr/{id}/cetak', [SPPRController::class, 'cetak'])->name('sppr.cetak');
+        Route::get('sppr/{id}/cetak-sptb', [SPPRController::class, 'cetakSptb'])->name('sppr.cetak-sptb');
         Route::get('sppr/get-customer-detail/{id}', [SPPRController::class, 'getCustomerDetail'])->name('sppr.get-customer-detail');
     });
 

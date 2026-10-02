@@ -7,6 +7,7 @@ use App\Http\Controllers\Pengaturan\HakAksesController;
 use App\Models\Customer;
 use App\Models\MarketingOffline;
 use App\Models\SPPR;
+use App\Services\SptbDocument;
 use App\Traits\LogAktivitasTrait;
 use Illuminate\Http\Request;
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -42,6 +43,7 @@ class SPPRController extends Controller
                 })
                 ->addColumn('action', function ($row) use ($permissions) {
                     $cetakUrl = route('sppr.cetak', $row->id);
+                    $sptbUrl = route('sppr.cetak-sptb', $row->id);
                     $editUrl = route('sppr.edit', $row->id);
                     $deleteUrl = route('sppr.destroy', $row->id);
 
@@ -51,7 +53,8 @@ class SPPRController extends Controller
                                 data-id="' . e($row->id) . '"
                                 data-url="' . e($editUrl) . '">Edit</button>';
                     }
-                    $btn .= '<a href="' . e($cetakUrl) . '" target="_blank" class="btn btn-dark btn-sm mx-1">Cetak</a>';
+                    $btn .= '<a href="' . e($cetakUrl) . '" target="_blank" class="btn btn-dark btn-sm mx-1 text-nowrap" title="Cetak SPPR"><i class="fas fa-print mr-1" aria-hidden="true"></i>SPPR</a>';
+                    $btn .= '<a href="' . e($sptbUrl) . '" target="_blank" class="btn btn-success btn-sm mx-1 text-nowrap" title="Cetak SPTB"><i class="fas fa-print mr-1" aria-hidden="true"></i>SPTB</a>';
                     if ($permissions['hapus']) {
                         $btn .= '<form action="' . e($deleteUrl) . '" method="POST" style="display:inline;">
                         ' . csrf_field() . method_field('DELETE') . '
@@ -103,6 +106,8 @@ class SPPRController extends Controller
                     'nama_marketing' => $customer->marketing->nama_marketing ?? '',
                     'luas_bangunan' => $customer->kavling->luas_bangunan ?? 0,
                     'luas_tanah' => $customer->kavling->luas_tanah ?? 0,
+                    'panjang_tanah' => $customer->kavling?->ukuranTanahSppr()['panjang_tanah'] ?? null,
+                    'lebar_tanah' => $customer->kavling?->ukuranTanahSppr()['lebar_tanah'] ?? null,
                     'kode_kavling' => $customer->kavling->kode_kavling ?? '',
                     'blok' => $blok,
                     'no' => $no,
@@ -164,7 +169,9 @@ class SPPRController extends Controller
         ]);
 
 
+        $sptb = $request->validate(SptbDocument::rules());
         $sppr = SPPR::create([
+            'sptb_data' => SptbDocument::withKavlingDimensions($sptb['sptb_data'] ?? null, $customer->kavling),
             'id_customer' => $request->id_customer,
             'no_sppr' => $request->no_sppr,
             'tanggal_sppr' => $request->tanggal_sppr,
@@ -197,6 +204,7 @@ class SPPRController extends Controller
         $sppr = SPPR::with('customer.kavling')->findOrFail($id);
         $sppr->setAttribute('tanggal_sppr', ($sppr->tanggal_sppr ?? $sppr->created_at ?? now())->format('Y-m-d'));
         $sppr->setAttribute('kode_kavling', $sppr->customer?->kavling?->kode_kavling ?? '');
+        $sppr->setAttribute('sptb_data', SptbDocument::withKavlingDimensions($sppr->sptb_data, $sppr->customer?->kavling));
 
         return response()->json([
             'status' => 'success',
@@ -232,7 +240,12 @@ class SPPRController extends Controller
         ]);
 
 
+        $sptb = $request->validate(SptbDocument::rules());
         $sppr->update([
+            'sptb_data' => SptbDocument::withKavlingDimensions(
+                array_key_exists('sptb_data', $sptb) ? $sptb['sptb_data'] : $sppr->sptb_data,
+                Customer::findOrFail($request->id_customer)->kavling
+            ),
             'id_customer' => $request->id_customer,
             'no_sppr' => $request->no_sppr,
             'tanggal_sppr' => $request->tanggal_sppr,
@@ -270,6 +283,16 @@ class SPPRController extends Controller
         return response()->json(['status' => 'success']);
     }
 
+
+    public function cetakSptb($id)
+    {
+        $sppr = SPPR::with(['customer.lokasi', 'customer.kavling', 'customer.marketing', 'marketing'])->findOrFail($id);
+        abort_unless(file_exists(public_path('templates/template_sppr/sptb_wijaya_grande.docx')), 404, 'Template SPTB tidak ditemukan.');
+        $path = app(SptbDocument::class)->generate($sppr);
+        $name = \Illuminate\Support\Str::slug($sppr->nama) ?: $sppr->id;
+
+        return response()->download($path, 'SPTB_'.$name.'.docx')->deleteFileAfterSend(true);
+    }
 
     public function cetak($id)
     {

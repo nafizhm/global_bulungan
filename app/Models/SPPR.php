@@ -10,6 +10,7 @@ class SPPR extends Model
     protected $primaryKey = 'id';
 
     protected $fillable = [
+        'sptb_data',
         'id_customer',
         'no_sppr',
         'tanggal_sppr',
@@ -33,6 +34,7 @@ class SPPR extends Model
     ];
 
     protected $casts = [
+        'sptb_data' => 'array',
         'tanggal_sppr' => 'date:Y-m-d',
         'luas_bangunan' => 'integer',
         'tahun_bangunan' => 'integer',

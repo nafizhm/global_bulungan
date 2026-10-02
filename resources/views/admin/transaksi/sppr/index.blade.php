@@ -32,10 +32,9 @@
                                             <th>Nama</th>
                                             <th>Lokasi Unit</th>
                                             <th>Alamat / No Telp</th>
-                                            <th>Luas Tanah</th>
-                                            <th>Luas Bangunan</th>
+                                            <th>Luas Tanah / Bangunan (m²)</th>
                                             <th>Marketing</th>
-                                            <th width="150px">Action</th>
+                                            <th width="260px">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -209,7 +208,7 @@
                             </div>
 
                             <div class="form-group row">
-                                <label for="penandatangan" class="col-sm-3 col-form-label">Penandatangan</label>
+                                <label for="penandatangan" class="col-sm-3 col-form-label">Penandatangan / Manajer Pemasaran / Direktur</label>
                                 <div class="col-sm-8">
                                     <input type="text" name="penandatangan" id="penandatangan" class="form-control">
                                 </div>
@@ -222,6 +221,34 @@
                                 </div>
                             </div>
 
+                        </div>
+                        <div class="px-3 pb-3">
+                            <fieldset class="border rounded p-3" id="sptb-fields">
+                                <legend class="w-auto px-2 h5 text-success">Surat Pesanan Tanah dan Bangunan</legend>
+                                <p class="text-muted small">Identitas pemesan, unit, harga jual, DP, marketing, dan penandatangan menggunakan data di atas. Isi nomor SPTB lengkap. Nominal awal biaya mengikuti contoh surat dan dapat diubah. Sisa pembayaran serta jadwal pelunasan diisi sesuai kesepakatan.</p>
+                                <div class="row">
+                                    @foreach (\App\Services\SptbDocument::fields() as $key => $field)
+                                        <div class="form-group col-md-6">
+                                            <label for="sptb_{{ $key }}">{{ $field['label'] }}</label>
+                                            <input id="sptb_{{ $key }}" name="sptb_data[{{ $key }}]"
+                                                type="{{ $field['type'] === 'money' ? 'text' : $field['type'] }}"
+                                                class="form-control sptb-input {{ $field['type'] === 'money' ? 'rupiah' : '' }}"
+                                                data-key="{{ $key }}"
+                                                @if (in_array($key, ['panjang_tanah', 'lebar_tanah'])) readonly @endif
+                                                value="{{ $field['type'] === 'money' && isset($field['default']) ? number_format($field['default'], 0, ',', '.') : '' }}"
+                                                @if ($field['type'] === 'money') inputmode="numeric" @endif
+                                                @if ($field['type'] === 'number') min="0" max="999999.99" step="0.01" @endif
+                                                @if ($field['type'] === 'text') maxlength="150" @endif>
+                                        </div>
+                                    @endforeach
+                                    <div class="col-12 text-muted small mb-3">Panjang dan lebar otomatis dari panjang kanan dan lebar depan kavling (jika kosong, menggunakan panjang kiri dan lebar belakang).</div>
+                                    <div class="form-group col-md-6">
+                                        <label for="sptb_total">Total Harga, Biaya, dan Booking Fee (Rp)</label>
+                                        <input id="sptb_total" class="form-control" readonly>
+                                        <small class="text-muted">Harga jual + PPN + biaya surat + bea KPR + booking fee. Terbilang diisi otomatis saat cetak.</small>
+                                    </div>
+                                </div>
+                            </fieldset>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
@@ -245,6 +272,8 @@
             $('#id_customer').val('').trigger('change').prop('disabled', false);
             $('#no_sppr').val('');
             $('#tanggal_sppr').val(tanggalHariIni());
+            $('#sptb_tanggal').val(tanggalHariIni());
+            updateSptbTotal();
         });
 
         function tanggalHariIni() {
@@ -257,7 +286,7 @@
 
         var audio = new Audio('{{ asset('audio/notification.ogg') }}');
         var permissions = @json($permissions);
-        var showActionColumn = (permissions['edit'] == 1 || permissions['hapus'] == 1);
+        var showActionColumn = true;
 
         $(function() {
             $('.select-customer').select2({
@@ -303,13 +332,7 @@
                 }, {
                     data: 'luas_tanah',
                     name: 'luas_tanah',
-                    render: data => `${Number(data || 0)} m&sup2;`,
-                    orderable: false,
-                    searchable: true
-                }, {
-                    data: 'luas_bangunan',
-                    name: 'luas_bangunan',
-                    render: data => `${Number(data || 0)} m&sup2;`,
+                    render: (data, type, row) => `${Number(data || 0)} / ${Number(row.luas_bangunan || 0)}`,
                     orderable: false,
                     searchable: true
                 }, {
@@ -336,6 +359,7 @@
 
         $(document).on('change', '#id_customer', function() {
             let id = $(this).val();
+            $('#sptb_panjang_tanah, #sptb_lebar_tanah').val('');
             if (!id) {
                 $('#pekerjaan').val('');
                 $('#id_marketing').val('').trigger('change');
@@ -344,6 +368,7 @@
 
             const url = '{{ route('sppr.get-customer-detail', ':id') }}'.replace(':id', id);
             $.get(url, function(res) {
+                if (String($('#id_customer').val()) !== String(id)) return;
                 if (res.status === 'success') {
                     let d = res.data;
                     $('#nama').val(d.nama_lengkap || '');
@@ -352,6 +377,8 @@
                     $('#no_telp').val(d.no_telp || '');
                     $('#luas_bangunan').val(d.luas_bangunan || 0);
                     $('#luas_tanah').val(d.luas_tanah || 0);
+                    $('#sptb_panjang_tanah').val(d.panjang_tanah ?? '');
+                    $('#sptb_lebar_tanah').val(d.lebar_tanah ?? '');
                     $('#blok').val(d.blok || '');
                     $('#no').val(d.no || '');
                     $('#harga_jual').val(formatNumber(d.harga_jual) || '0');
@@ -359,6 +386,7 @@
                     $('#nominal_dp').val('0');
                     $('#pekerjaan').val(d.pekerjaan || '');
                     $('#kode_kavling').val(d.kode_kavling || '');
+                    updateSptbTotal();
                     if (!$('#primary_id').val()) {
                         if (d.id_marketing) {
                             $('#id_marketing').val(d.id_marketing).trigger('change');
@@ -373,7 +401,14 @@
         $(document).on('input', '.rupiah', function() {
             let value = $(this).val().replace(/\D/g, '');
             $(this).val(value ? formatRupiah(value) : '');
+            updateSptbTotal();
         });
+
+        function updateSptbTotal() {
+            const total = ['harga_jual', 'sptb_ppn', 'sptb_biaya_surat', 'sptb_biaya_kpr', 'sptb_booking_fee']
+                .reduce((sum, key) => sum + unformatNumber($('#' + key).val()), 0);
+            $('#sptb_total').val(formatNumber(total));
+        }
 
 
         function formatRupiah(angka) {
@@ -432,6 +467,11 @@
                     }
                     $('#penandatangan').val(d.penandatangan || '');
                     $('#keterangan').val(d.keterangan || '');
+                    $('.sptb-input').each(function() {
+                        const value = (d.sptb_data || {})[$(this).data('key')] ?? '';
+                        $(this).val($(this).hasClass('rupiah') && value !== '' ? formatNumber(value) : value);
+                    });
+                    updateSptbTotal();
                     $('#modalForm').modal('show');
                 }
             });
@@ -492,6 +532,9 @@
                 let val = input.val();
                 formData.set(field, unformatNumber(val));
             });
+            $('.sptb-input.rupiah').each(function() {
+                formData.set(this.name, this.value === '' ? '' : unformatNumber(this.value));
+            });
 
             formData.append('_method', method);
 
@@ -523,7 +566,7 @@
 
                         let errors = xhr.responseJSON.errors;
                         $.each(errors, function(key, val) {
-                            let input = $('#' + key);
+                            let input = $('#' + (key.startsWith('sptb_data.') ? 'sptb_' + key.substring(10) : key));
                             input.addClass('is-invalid');
                             input.parent().find('.invalid-feedback').remove();
                             input.parent().append(
